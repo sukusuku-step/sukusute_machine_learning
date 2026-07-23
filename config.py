@@ -15,5 +15,8 @@ DUMMY_DATA_SIZE = 1000
 # 測定した実データCSVファイルへのパス
 CSV_PATH = "sensor/collected_data/data.csv"
 
+# 過去データを取得するためのAPIのURL
+API_URL = "http://localhost:8000/api/children"
+
 # 学習済みモデル（.pthファイル）を格納するフォルダへのパス
 MODEL_SAVE_PATH = "models/saved/mlp_prototype.pth"
