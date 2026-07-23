@@ -17,7 +17,7 @@ source .venv/bin/activate
 ### 3. 必要なライブラリのインストール
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt // 結構時間がかかる
 ```
 
 ---
@@ -27,6 +27,7 @@ pip install -r requirements.txt
 ### 実行方法
 
 ```bash
+mkdir models/saved // 学習済みモデルを保存するためのフォルダを作成
 python -m training.train
 ```
 
