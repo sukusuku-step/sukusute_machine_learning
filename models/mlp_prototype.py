@@ -1,19 +1,19 @@
 import torch.nn as nn
 
-# 単純な全結合ネットワーク（MLP）で学習モデルを構築
+import config
+
+# 単純な全結合ネットワーク（MLP）の学習モデル
 class SukusuteNet(nn.Module):
     def __init__(self):
         super().__init__()
 
+        # 入力層⇒中間層1⇒中間層2⇒出力層（3クラス）でMLPを構築する
         self.net = nn.Sequential(
-
-            nn.Linear(9,32),
+            nn.Linear(config.INPUT_SIZE, config.HIDDEN_SIZE1),
             nn.ReLU(),
-
-            nn.Linear(32,16),
+            nn.Linear(config.HIDDEN_SIZE1, config.HIDDEN_SIZE2),
             nn.ReLU(),
-
-            nn.Linear(16,3)
+            nn.Linear(config.HIDDEN_SIZE2, config.OUTPUT_SIZE)
         )
 
     def forward(self,x):

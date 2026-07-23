@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+import config
 from dataset.dataset import SukusuteDataset
 from features.dummy_features import create_dummy_data
 from models.mlp_prototype import SukusuteNet
@@ -8,14 +9,13 @@ from torch.utils.data import DataLoader
 
 # データセットを利用してモデルの学習を行う
 
-N = 1000 # 学習用のダミーデータの特徴量の標本サイズ
-X, y = create_dummy_data(N) # ダミーデータの生成
+X, y = create_dummy_data(config.DUMMY_DATA_SIZE) # ダミーデータの生成
 
 dataset = SukusuteDataset(X,y) # PyTorch用のデータセットを作成
 
 loader = DataLoader(
     dataset,
-    batch_size=32,
+    batch_size=config.BATCH_SIZE,
     shuffle=True
 )
 
@@ -23,9 +23,13 @@ model = SukusuteNet()
 model.train()
 
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-for epoch in range(20):
+optimizer = torch.optim.Adam(
+    model.parameters(), 
+    lr=config.LEARNING_RATE
+)
+
+for epoch in range(config.EPOCHS):
     total_loss = 0
 
     for x_batch,y_batch in loader:
@@ -38,6 +42,6 @@ for epoch in range(20):
 
     print(epoch,total_loss)
 
-# できた学習モデルをsavedディレクトリへ保存する（上書き保存）
-torch.save(model.state_dict(), "models/saved/mlp_prototype.pth")
+# できた学習モデルの保存（上書き保存）
+torch.save(model.state_dict(), config.MODEL_SAVE_PATH)
 print("モデルを保存しました")
