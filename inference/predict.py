@@ -1,6 +1,6 @@
 import torch
 
-from models.mlp_prototype import SukusuteNet
+from models.classifier import SukusuteNet
 from features.dummy_features import create_dummy_data
 
 # サンプルデータを1つ生成して推論結果を見るためのプログラム
