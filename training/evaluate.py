@@ -1,7 +1,7 @@
 import torch
 
 from models.classifier import SukusuteNet
-from features.dummy_features import create_dummy_data
+from utils.dummy_features import create_dummy_data
 
 # サンプルデータを100個生成して学習モデルを評価するためのプログラム
 
