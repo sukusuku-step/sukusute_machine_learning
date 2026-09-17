@@ -36,10 +36,8 @@ DEFAULT_HISTORY_DAYS=14 # 履歴データを使う場合の参照する過去の
 CSV_PATH = "sensor/collected_data/data.csv"
 
 # 学習済みモデルを格納するフォルダへのパス
-OUTPUT_DIR = "models/saved"
-MODEL_PATH = "models/saved/model.pth"
-SCALER_PATH = "models/saved/scaler.pkl"
-METADATA_PATH = "models/saved/metadata.pkl"
+BEHAVIOR_MODEL_PATH = "models/saved/behavior"
+DISTANCE_MODEL_PATH = "models/saved/distance"
 
 # 過去データを取得するためのAPIのURL
 API_URL = "http://localhost:8000/api/children"

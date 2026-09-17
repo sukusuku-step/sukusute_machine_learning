@@ -41,7 +41,7 @@ class BehaviorActivityModel(nn.Module):
         )
 
         # セッション全体からactivity_lebelの値を予測する
-        self.activity_head = nn.Linear(LSTM_HIDDEN*2, 1)
+        self.activity_head = nn.Linear(LSTM_HIDDEN*2, 5)
 
     # 1つの10分区間を処理する関数
     def encode_10min(self, x10):
