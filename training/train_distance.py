@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse, glob, os
+import glob, os
 from pathlib import Path
 import numpy as np, torch
 import torch.nn as nn
@@ -11,7 +11,15 @@ from utils.add_features import *
 from utils.deal_csv import *
 from models import DistanceModel
 
-from config import N_WINDOWS, SEED
+from config import (
+    WINDOW_LEN,
+    N_WINDOWS,
+    SEED,
+    EPOCHS,
+    LEARNING_RATE,
+    CSV_PATH, 
+    DISTANCE_MODEL_PATH, 
+)
 
 # 各相手との相対距離データからCNN+LSTMにより学習を行う
 # 相対距離のラベル分類が推論結果となるモデル
@@ -20,21 +28,21 @@ from config import N_WINDOWS, SEED
 np.random.seed(SEED); torch.manual_seed(SEED)
 
 def main():
-    ap=argparse.ArgumentParser()
-    ap.add_argument("--data",required=True)
-    ap.add_argument("--out",default="artifacts/distance")
-    ap.add_argument("--epochs",type=int,default=30)
-
-    args=ap.parse_args()
-    paths=glob.glob(os.path.join(args.data,"*.csv")) if os.path.isdir(args.data) else [args.data]
+    # CSVデータを読み取るためのパスを作成
+    paths = (
+        glob.glob(os.path.join(CSV_PATH, "*.csv"))
+        if os.path.isdir(CSV_PATH)
+        else [CSV_PATH]
+    )
 
     examples=[]
     labels=[]
 
     for path in paths:
+        # CSVファイルを読み込む
         df = read_csv(path)
 
-        # CSV内のDistance列を測定相手ごとに処理
+        # CSV内のDistance列を測定相手ごとに処理する
         for dc in numeric_distance_columns(df):
             lc = distance_label_col(dc)
 
@@ -44,50 +52,92 @@ def main():
             d = pd.to_numeric(df[dc], errors="coerce")
             temp = pd.DataFrame({"Timestamp": df["Timestamp"], dc: d, lc: df[lc]})
 
+            # 10分単位にデータを分割する
             for _, seg in make_10min_segments(temp):
+                # 入力データが6000行であるかどうかの確認
+                if len(seg) != N_WINDOWS * WINDOW_LEN:
+                    continue
+
                 lab = label_from_segment(seg, lc)
 
                 if not lab:
                     continue
 
-                arr = seg[dc].to_numpy(dtype=np.float32)
-                arr = arr.reshape(N_WINDOWS, WINDOW_LEN, 1)
+                distance = seg[dc].to_numpy(dtype=np.float32)
+
+                # 相対距離でNaN（タイムアウト）だった位置を記録
+                is_nan = np.isnan(distance).astype(np.float32)
+
+                # NaNそのものは扱えないためモデルには入れない
+                distance = np.nan_to_num(distance, nan=0.0)
+
+                # Distance + NaNフラグ（NaNをIsNaNフラグとしてモデルに渡す方式）
+                arr = np.stack([distance, is_nan], axis=-1)
+                arr = arr.reshape(N_WINDOWS, WINDOW_LEN, 2)
+
                 examples.append(arr)
                 labels.append(lab)
 
     if not examples: 
         raise ValueError("Distance_i + Distance_i_Label の学習データがありません。")
-    
+
+    # Numpy配列にまとめる
     X=np.stack(examples)
+
+    # 各ラベルを番号に変換する
     enc=LabelEncoder().fit(labels)
     y=enc.transform(labels)
+
+    # データの標準化
     scaler=fit_scaler(X)
     X=apply_scaler(X,scaler)
 
+    # モデルを作成する（CNN⇒LSTM⇒Attention）
     model=DistanceModel(n_classes=len(enc.classes_))
-    opt=torch.optim.AdamW(model.parameters(),lr=1e-3,weight_decay=1e-4)
-    loss_fn=nn.CrossEntropyLoss()
+
+    # 最適化
+    opt=torch.optim.AdamW(
+        model.parameters(),
+        lr=LEARNING_RATE,
+        weight_decay=1e-4
+    )
+    loss_fn=nn.CrossEntropyLoss() # 損失関数
     model.train()
 
-    for ep in range(args.epochs):
-        order=np.random.permutation(len(X)); total=0
+    # 学習を進める
+    for ep in range(EPOCHS):
+        order=np.random.permutation(len(X))
+        total=0
+
         for i in order:
-            xb=torch.tensor(X[i:i+1]); yb=torch.tensor(y[i:i+1])
+            xb=torch.tensor(X[i:i+1])
+            yb=torch.tensor(y[i:i+1])
+
             opt.zero_grad()
             loss=loss_fn(model(xb),yb)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(),1.0); opt.step()
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(),1.0);
+            opt.step()
+
             total+=loss.item()
 
         if (ep+1)%5==0 or ep==0: 
-            print(f"epoch {ep+1}/{args.epochs} loss={total/len(X):.4f}")
+            print(f"epoch {ep+1}/{EPOCHS} loss={total/len(X):.4f}")
 
-    out=Path(args.out); out.mkdir(parents=True,exist_ok=True)
+    # できた学習済みモデル及びその設定ファイルの保存
+    out=Path(DISTANCE_MODEL_PATH)
+    out.mkdir(parents=True,exist_ok=True)
     torch.save(model.state_dict(),out/"distance.pt")
-
     joblib.dump(scaler,out/"scaler.joblib")
 
-    save_json({"classes":enc.classes_.tolist(),"window_sec":10,"label_sec":600},out/"config.json")
+    save_json(
+        {
+            "classes":enc.classes_.tolist(),
+            "window_sec":10,
+            "label_sec":600
+        },out/"config.json"
+    )
     print("saved:",out)
 
 if __name__=="__main__": main()

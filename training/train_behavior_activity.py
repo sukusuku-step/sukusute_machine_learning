@@ -101,12 +101,17 @@ def main():
     # モデルを作成する（CNN⇒BiLSTM⇒Attention）
     model=BehaviorActivityModel(len(fc),len(pedo_classes),len(acce_classes))
 
+    # 最適化
     opt=torch.optim.AdamW(
         model.parameters(),
         lr=LEARNING_RATE,
         weight_decay=1e-4
     )
-    ce_p=nn.CrossEntropyLoss(); ce_a=nn.CrossEntropyLoss(); ce_act=nn.CrossEntropyLoss()
+
+    # 損失関数
+    ce_p=nn.CrossEntropyLoss()
+    ce_a=nn.CrossEntropyLoss()
+    ce_act=nn.CrossEntropyLoss()
 
     # 学習を進める
     for ep in range(EPOCHS):
@@ -134,13 +139,16 @@ def main():
             # 行動/姿勢を主タスク、activity_levelを補助タスクとして学習
             loss=loss_p+loss_a+0.5*loss_act
             loss.backward()
+
             torch.nn.utils.clip_grad_norm_(model.parameters(),1.0)
             opt.step()
+
             total+=loss.item()
 
         if (ep+1)%5==0 or ep==0:
             print(f"epoch {ep+1}/{EPOCHS} loss={total/len(order):.4f}")
 
+    # 学習済みモデルの保存先パス
     out=Path(BEHAVIOR_MODEL_PATH)
     out.mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(),out / "behavior_activity.pt")

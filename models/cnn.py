@@ -7,6 +7,7 @@ class CNNEncoder(nn.Module):
     def __init__(self, in_channels, emb=CNN_CHANNELS):
         super().__init__()
 
+        # CNNネットワークの構築
         self.net = nn.Sequential(
             nn.Conv1d(in_channels, 64, 7, padding=3),
             nn.BatchNorm1d(64), nn.GELU(), nn.MaxPool1d(2),
