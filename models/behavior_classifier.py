@@ -58,7 +58,7 @@ class BehaviorActivityModel(nn.Module):
     # CSV全体を処理する関数
     def forward(self, x10, session_mask=None):
         # x10 [B,S,60,100,C]
-        B,S,W,T,C = x10.shape
+        B,S = x10.shape
 
         pooled = []
         pedo=[]

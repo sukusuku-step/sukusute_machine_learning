@@ -1,9 +1,6 @@
-import requests
 import pandas as pd
 from pathlib import Path
 import json
-
-from config import API_URL
 
 # ラベリング済みCSVを読み込む関数
 def read_csv(path):
@@ -14,16 +11,6 @@ def read_csv(path):
         except UnicodeDecodeError:
             pass
     raise UnicodeDecodeError("CSV", b"", 0, 1, "Unsupported encoding")
-
-# APIを叩いてDBから過去データをJSONで取得する関数
-def load_training_data():
-    # サーバから過去データを受け取る
-    response = requests.get(API_URL)
-
-    # ステータスコードが200以外なら例外を送出
-    response.raise_for_status()
-
-    return response.json()
 
 # PythonデータをJSONファイルとして保存する関数
 def save_json(obj, path):

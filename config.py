@@ -32,12 +32,9 @@ LSTM_LAYERS = 2 # LSTMのレイヤー数
 MIN_HISTORY_HOURS=24 # ベースラインを作るために必要な最低履歴時間
 DEFAULT_HISTORY_DAYS=14 # 履歴データを使う場合の参照する過去の期間
 
-# 測定した実データCSVファイルへのパス
-CSV_PATH = "sensor/collected_data/data.csv"
+# 学習用のラベリング済み実測データCSVファイルを格納するフォルダのパス
+CSV_PATH = "sensor/collected_data"
 
-# 学習済みモデルを格納するフォルダへのパス
+# 学習済みモデル及びその設定ファイルを格納するフォルダのパス
 BEHAVIOR_MODEL_PATH = "models/saved/behavior"
 DISTANCE_MODEL_PATH = "models/saved/distance"
-
-# 過去データを取得するためのAPIのURL
-API_URL = "http://localhost:8000/api/children"

@@ -30,6 +30,7 @@ np.random.seed(SEED); torch.manual_seed(SEED)
 def main():
     # CSVデータを読み取るためのパスを作成
     paths = (
+        # CSV_PATHで指定されたディレクトリ内にある.csvファイルを全て取得しリストに入れる
         glob.glob(os.path.join(CSV_PATH, "*.csv"))
         if os.path.isdir(CSV_PATH)
         else [CSV_PATH]
@@ -38,6 +39,7 @@ def main():
     examples=[]
     labels=[]
 
+    # 取得した各ファイルについて学習を行う
     for path in paths:
         # CSVファイルを読み込む
         df = read_csv(path)

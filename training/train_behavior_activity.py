@@ -69,11 +69,13 @@ def split_paths(paths):
 def main():
     # CSVデータを読み取るためのパスを作成
     paths = (
+        # CSV_PATHで指定されたディレクトリ内にある.csvファイルを全て取得しリストに入れる
         glob.glob(os.path.join(CSV_PATH, "*.csv"))
         if os.path.isdir(CSV_PATH)
         else [CSV_PATH]
     )
 
+    # pathsリストの長さ = 学習に使うデータのファイル数
     if len(paths) < 2: 
         raise ValueError("汎用モデル評価のためCSVは複数ファイル推奨です。")
 
@@ -148,7 +150,7 @@ def main():
         if (ep+1)%5==0 or ep==0:
             print(f"epoch {ep+1}/{EPOCHS} loss={total/len(order):.4f}")
 
-    # 学習済みモデルの保存先パス
+    # できた学習済みモデル及びその設定ファイルの保存
     out=Path(BEHAVIOR_MODEL_PATH)
     out.mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(),out / "behavior_activity.pt")

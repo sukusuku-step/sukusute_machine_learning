@@ -5,7 +5,7 @@ import numpy as np, pandas as pd, torch, joblib, json
 from models import BehaviorActivityModel
 import utils.add_features
 
-from config import WINDOW_LEN, N_WINDOWS, BEHAVIOR_MODEL_PATH
+from config import WINDOW_LEN, N_WINDOWS, BEHAVIOR_MODEL_PATH, BASE_SENSOR_COLS
 
 # 学習済みモデルを使い、計測データからその推論（ラベル分類）を出力する
 
@@ -48,22 +48,15 @@ def behavior_infer(data):
 
     model.eval() # 推論モードにする
 
-    base_cols = [
-        "Steps",
-        "Ax", "Ay", "Az",
-        "Gx", "Gy", "Gz",
-        "Mx", "My", "Mz"
-    ]
-
     # 入力データのカラム数の確認
-    if data.shape[1] != len(base_cols):
+    if data.shape[1] != len(BASE_SENSOR_COLS):
         raise ValueError(
-            f"入力データは{len(base_cols)}列の形式を要求しています。"
+            f"入力データは{len(BASE_SENSOR_COLS)}列の形式を要求しています。"
             f"現在は{data.shape[1]}列です。"
         )
 
     # 入力のNumPy配列からDataFrameを作成する
-    df = pd.DataFrame(data, columns=base_cols)
+    df = pd.DataFrame(data, columns=BASE_SENSOR_COLS)
 
     # 学習時と同じ補助特徴量を追加する
     df, feature_cols = (utils.add_features.add_engineered_features(df))
@@ -85,7 +78,7 @@ def behavior_infer(data):
 
     # 学習モデルによる推論を行う
     with torch.no_grad():
-        pedo_out, acce_out, activity_out = model(x_tensor)
+        pedo_out, acce_out = model(x_tensor)
 
     # 歩数データのラベル分類の推論（10分毎）
     pedo_prob = pedo_out[0].softmax(-1)
@@ -120,17 +113,10 @@ def activity_infer(data):
             f"現在のshape: {data.shape}"
         )
 
-    base_cols = [
-        "Steps",
-        "Ax", "Ay", "Az",
-        "Gx", "Gy", "Gz",
-        "Mx", "My", "Mz"
-    ]
-
     # 入力データのカラム数の確認
-    if data.shape[1] != len(base_cols):
+    if data.shape[1] != len(BASE_SENSOR_COLS):
         raise ValueError(
-            f"入力データは{len(base_cols)}列の形式を要求しています。"
+            f"入力データは{len(BASE_SENSOR_COLS)}列の形式を要求しています。"
             f"現在は{data.shape[1]}列です。"
         )
 
@@ -161,7 +147,7 @@ def activity_infer(data):
     model.eval() # 推論モードにする
 
     # 入力のNumPy配列からDataFrameを作成する
-    df = pd.DataFrame(data, columns=base_cols)
+    df = pd.DataFrame(data, columns=BASE_SENSOR_COLS)
 
     # 学習時と同じ補助特徴量を追加する
     df, feature_cols = (utils.add_features.add_engineered_features(df))
