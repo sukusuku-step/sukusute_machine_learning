@@ -1,75 +1,115 @@
 from __future__ import annotations
-import argparse, json
-from pathlib import Path
-import numpy as np, pandas as pd
+import numpy as np
+import pandas as pd
 
-from utils.collector import *
-from utils.add_features import *
-from utils.deal_csv import *
+from utils.deal_csv import make_10min_segments
+from utils.add_features import add_engineered_features
 
-from config import MIN_HISTORY_HOURS
+from config import SAMPLE_HZ, MIN_HISTORY_HOURS
 
 MAD_EPS=1e-6 # ゼロ除算防止用の微小値
 
-# 個人チューニングした異常検知のベースラインを算出する
-# ある個人の過去データから平均的な値を算出し新しいデータがどれだけ外れているかを調べる
+# 過去データから個人チューニングした異常検知用のベースライン（しきい値）を算出する
 
-def summary_features(df):
-    df,_=add_engineered_features(df)
-    t=get_time(df)
-    hour=(t/3600)%24
-    # 10分単位の説明可能な特徴
-    rows=[]
-    for sid,seg in make_10min_segments(df):
-        f,_=add_engineered_features(seg)
-        steps=pd.to_numeric(f["Step_Diff"],errors="coerce").fillna(0)
-        acc=pd.to_numeric(f["Acc_Mag"],errors="coerce")
-        rows.append({
-            "segment":sid,
-            "steps_10min":float(steps.sum()),
-            "activity_mean_proxy":float(acc.mean()),
-            "acc_std":float(acc.std()),
-            "gyro_mean":float(pd.to_numeric(f["Gyro_Mag"],errors="coerce").mean()),
-        })
-    return pd.DataFrame(rows)
-
+# ある人の普段の特徴量を統計的にまとめる処理
 def robust_stats(values):
-    x=np.asarray(values,float); med=np.nanmedian(x); mad=np.nanmedian(np.abs(x-med))
-    scale=max(1.4826*mad,MAD_EPS)
-    return float(med),float(scale)
+    x = np.asarray(values, dtype=np.float32)
 
-def build_baseline(csv_paths, out="baseline.json"):
-    rows=[]
-    for p in csv_paths:
-        df=read_csv(p); s=summary_features(df)
-        if len(s): rows.append(s)
-    if not rows: raise ValueError("ベースライン用データがありません。")
-    x=pd.concat(rows,ignore_index=True)
-    features=["steps_10min","activity_mean_proxy","acc_std","gyro_mean"]
-    baseline={"required_history_hours":MIN_HISTORY_HOURS,"features":{}}
-    for f in features:
-        med,scale=robust_stats(x[f])
-        baseline["features"][f]={"median":med,"mad_scale":scale}
-    Path(out).write_text(json.dumps(baseline,ensure_ascii=False,indent=2),encoding="utf-8")
-    print("saved:",out)
+    median = np.nanmedian(x) # 中央値を算出
+    mad = np.nanmedian(np.abs(x - median))
+    mad_scale = max(1.4826 * mad, MAD_EPS)
 
-def score_10min(csv_path, baseline_path, z_threshold=3.5):
-    b=json.loads(Path(baseline_path).read_text(encoding="utf-8"))
-    df=read_csv(csv_path); x=summary_features(df)
-    results=[]
-    for _,r in x.iterrows():
-        deviations={}
-        for f,s in b["features"].items():
-            score=abs(float(r[f])-s["median"])/max(s["mad_scale"],MAD_EPS)
-            if score>=z_threshold: deviations[f]={"value":float(r[f]),"baseline":s["median"],"score":score}
-        results.append({"segment":int(r["segment"]),"anomalies":deviations})
-    return results
+    return float(median), float(mad_scale)
 
-if __name__=="__main__":
-    ap=argparse.ArgumentParser()
-    ap.add_argument("--mode",choices=["build","score"],required=True)
-    ap.add_argument("--csv",nargs="+",required=True)
-    ap.add_argument("--out",default="baseline.json")
-    args=ap.parse_args()
-    if args.mode=="build": build_baseline(args.csv,args.out)
-    else: print(json.dumps(score_10min(args.csv,args.out),ensure_ascii=False,indent=2))
+# 個人チューニングしたベースラインを算出する関数
+# 入力は["Timestamp", "Steps", "Ax", "Ay", "Az","Gx", "Gy", "Gz", "Mx", "My", "Mz"]の行列（任意の行数×11列）
+def build_baseline(data):
+    # data（過去データの行列）をNumpy配列へ変換
+    data = np.asarray(data, dtype=np.float32)
+
+    # 入力データの形式を確認
+    if data.ndim != 2 or data.shape[1] != 11:
+        raise ValueError(
+            "入力データの形式が違います。"
+            f"現在のshape: {data.shape}"
+        )
+
+    # ベースライン算出に必要な分の履歴が溜まっていなければ即returnとする
+    if len(data) < MIN_HISTORY_HOURS * 60 * 60 * SAMPLE_HZ:
+        return None
+
+    columns = [
+        "Timestamp",
+        "Steps",
+        "Ax", "Ay", "Az",
+        "Gx", "Gy", "Gz",
+        "Mx", "My", "Mz"
+    ]
+    df = pd.DataFrame(data, columns=columns)
+
+    # ベースライン算出に使いやすい特徴量を計算する
+    df, _ = add_engineered_features(df)
+
+    # データを10分単位に分割（余りは切り捨てる）
+    segments = make_10min_segments(df)
+
+    if not segments:
+        return None
+
+    rows = []
+
+    # 各10分間の特徴量を計算する
+    for _, seg in segments:
+        # 累計歩数の変化量の総和
+        steps = pd.to_numeric(
+            seg["Step_Diff"], errors="coerce"
+        ).fillna(0)
+
+        # 加速度の大きさ
+        acc = pd.to_numeric(
+            seg["Acc_Mag"], errors="coerce"
+        )
+
+        # ジャイロ（角速度）の大きさ
+        gyro = pd.to_numeric(
+            seg["Gyro_Mag"], errors="coerce"
+        )
+
+        # 地磁気の大きさ
+        mag = pd.to_numeric(
+            seg["Mag_Mag"], errors="coerce"
+        )
+
+        rows.append({
+            "steps_10min": float(steps.sum()), # 累計歩数の変化量の総和
+            "activity_mean_proxy": float(acc.mean()), # 加速度の大きさの平均
+            "acc_std": float(acc.std()), # 加速度の大きさの標準偏差
+            "gyro_mean": float(gyro.mean()), # ジャイロの大きさの平均
+            "mag_mean": float(mag.mean()) # 地磁気の大きさの平均
+        })
+
+    # 10分ごとの結果をまとめる
+    summary = pd.DataFrame(rows)
+
+    features = [
+        "steps_10min",
+        "activity_mean_proxy",
+        "acc_std",
+        "gyro_mean",
+        "mag_mean"
+    ]
+
+    baseline = {"features": {}}
+
+    # 個人チューニングした「普段」の指標を算出する
+    for feature in features:
+        median, mad_scale = robust_stats(summary[feature])
+
+        baseline["features"][feature] = {
+            "median": median, # 普段の値
+            "mad_scale": mad_scale # 普段の標準偏差（ばらつき）
+        }
+
+    # 最終的に算出したベースラインを返す
+    # featuresの中の5つの特徴量に関して「普段の10分間での値とばらつき」を算出する
+    return baseline
