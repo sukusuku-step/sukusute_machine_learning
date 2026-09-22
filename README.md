@@ -302,7 +302,7 @@ result = distance_infer(distance_data)
 `Distance_N` に含まれるNaNは、そのまま残して入力する  
 サーバ側で0や平均値に置換する必要はなく、NaN処理は `distance_infer()` 内部で行う
 
-複数の相手を推論する場合は、
+複数の相手デバイスの相対距離データから推論する場合は、
 
 ```python
 for column in ["Distance_1", "Distance_2", "Distance_3",]:
@@ -310,7 +310,7 @@ for column in ["Distance_1", "Distance_2", "Distance_3",]:
     result = distance_infer(distance_data)
 ```
 
-のように各 `Distance_N` を個別に推論関数へ入力するようにする
+のようにそれぞれの10分間の `Distance_N` を個別で推論関数へ入力する
 
 ### 4. 活動量モデルへの入力
 
