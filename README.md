@@ -22,7 +22,51 @@ pip install -r requirements.txt // 結構時間がかかる
 
 ---
 
-## 学習
+## ディレクトリ構成
+
+```text
+.
+├── inference/
+│   ├── predict_behavior.py
+│   └── predict_distance.py
+├── models/
+│   ├── behavior_classifier.py
+│   ├── cnn.py
+│   └── distance_classifier.py
+├── training/
+│   ├── evaluate.py
+│   ├── train_behavior_activity.py
+│   └── train_distance.py
+├── utils/
+│   ├── beseline.py
+│   └── relatedness.py
+```
+
+* `inference/`
+  学習済みモデルを用いた推論処理
+  （behavior_infer、activity_infer、distance_infer）
+
+* `models/`
+  CNNや分類モデル（BiLSTM）などのモデル定義
+
+* `training/`
+  学習・評価用スクリプト
+
+* `utils/baseline.py`
+  ベースライン算出用の関数（モデルは使わず統計的処理による算出）
+
+* `utils/relatedness.py`
+  関連度スコア算出用の関数（過去の推論結果を利用して算出）
+
+サーバ側には学習済みモデル及び
+
+```text
+predict_behavior.py, predict_distance.py, baseline.py, relatedness.py
+```
+
+の中の関数を配置すればよい
+  
+## 機械学習
 
 ラベリング済み計測データの*.csvファイルを `collected_data` ディレクトリにあるだけ用意しておく  
 `collected_data` ディレクトリ直下に置かれた*.csvファイルを全て学習する  
@@ -388,7 +432,7 @@ python -m training.evaluate
 
 ### 内容
 
-- `EVALUATE_CSV_PATH` から評価対象のCSVを読み込む
+- `collected_data/evaluate` のフォルダからテスト用データのCSVを読み込む
 - ラベル列あり・なしの両方のCSVに対応
 - `Steps, Ax～Mz` から10分毎で `Pedo_Label` と `Acce_Label` を推論する
 - CSV全体の `Steps, Ax～Mz` から `activity_level` を1つ推論する
