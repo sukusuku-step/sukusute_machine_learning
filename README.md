@@ -165,20 +165,170 @@ Distance_N_Labelが正解データ
 
 ---
 
-## 推論
+## 推論用の関数
 
-### 実行方法
+学習済みモデルを用いた推論には以下の関数を用意している
 
-```bash
-python -m inference.predict
+| 関数 | 推論内容 | 入力形式 |
+|---|---|---|
+| `behavior_infer()` | 歩行・姿勢ラベル | 10分間の `Steps, Ax～Mz` |
+| `activity_infer()` | 活動量の値（1～5） | 10分以上の `Steps, Ax～Mz` |
+| `distance_infer()` | 相対距離ラベル | 10分間の1つの `Distance_N` |
+
+`behavior_infer()` と `distance_infer()` は0.1秒周期で取得した10分間、すなわち6000サンプルを入力する
+
+---
+
+### サーバ側での入力データ作成
+
+DBには以下のようなカラムで計測データが保存されることを想定（DateはTimestampとStartから作成）
+
+```text
+id | Date | Steps | Ax | Ay | Az | Gx | Gy | Gz | Mx | My | Mz | Distance_1 | Distance_2 | ...
+````
+
+モデルへの入力に `id` と `Date` は使用しない
+
+ただし、DBからデータを取得するときは時系列順を保証するため、必ず `Date` の昇順でデータを取得する
+
+### 1. DBから10分間のデータを取得する
+
+計測周期は0.1秒周期なので、10分間のデータは6000行となる
+
+そのため、歩行・姿勢および相対距離を推論する場合は、対象時刻から連続した10分間の6000行を取得する
+
+取得後のデータは、例えば `pandas.DataFrame` として以下のような状態を想定する
+
+```python
+df
 ```
 
-### 内容
+```text
+Steps | Ax | Ay | Az | ... | Mz | Distance_2 | Distance_4 | ...
+---------------------------------------------------------------
+100   | ...                  | ...| 1.25       | NaN
+100   | ...                  | ...| 1.24       | NaN
+101   | ...                  | ...| 1.22       | 2.31
+...
 
-* 学習済みモデルを読み込み
-* サンプルデータを1つ乱数値で生成して入力
-* 学習済みモデルで健康状態を推論
-* 推論結果を表示
+なお、相対距離データに関しては空欄（NaN）を許容する
+```
+
+### 2. 歩行・姿勢モデルへの入力
+
+以下の10列だけを取り出す
+
+```python
+BEHAVIOR_COLUMNS = [
+    "Steps",
+    "Ax", "Ay", "Az",
+    "Gx", "Gy", "Gz",
+    "Mx", "My", "Mz",
+]
+
+behavior_data = df[BEHAVIOR_COLUMNS].to_numpy(dtype=np.float32)
+```
+
+10分間であれば、
+
+```python
+behavior_data.shape
+# (6000, 10)
+```
+
+となる
+
+この配列をそのまま、
+
+```python
+result = behavior_infer(behavior_data)
+```
+
+へ渡す
+
+`Timestamp` は推論関数内で0.1秒周期を前提に生成するため、サーバ側で用意する必要はない
+
+### 3. 相対距離モデルへの入力
+
+相対距離は `Distance_N` ごとに個別に推論する
+
+例えば `Distance_1` の場合、
+
+```python
+distance_data = df["Distance_1"].to_numpy(dtype=np.float32)
+```
+
+とする
+
+入力shapeは、
+
+```python
+distance_data.shape
+# (6000,)
+```
+
+となる
+
+これを、
+
+```python
+result = distance_infer(distance_data)
+```
+
+へ渡す
+
+`Distance_N` に含まれるNaNは、そのまま残して入力する
+サーバ側で0や平均値に置換する必要はなく、NaN処理は `distance_infer()` 内部で行う
+
+複数の相手を推論する場合は、
+
+```python
+for column in ["Distance_1", "Distance_2", "Distance_3",]:
+    distance_data = df[column].to_numpy(dtype=np.float32)
+    result = distance_infer(distance_data)
+```
+
+のように各 `Distance_N` を個別に渡す
+
+### 4. 活動量モデルへの入力
+
+`activity_infer()` の入力列は `behavior_infer()` と同じ形式となる
+
+```python
+activity_data = df[BEHAVIOR_COLUMNS].to_numpy(dtype=np.float32)
+result = activity_infer(activity_data)
+```
+
+ただし、活動量は10分単位ではなく対象期間全体から推論する
+
+例えば1時間分の活動量を求める場合は、
+
+```text
+1時間 × 3600秒 × 10 Hz = 36000行
+```
+
+を取得して入力する
+
+---
+
+## サーバ側の処理フロー
+
+```text
+DB
+ ↓
+Date昇順で対象期間を取得
+ ↓
+pandas.DataFrame
+ │
+ ├─ Steps + Ax～Mz
+ │      ├─ 10分間 → behavior_infer()
+ │      └─ 対象期間全体 → activity_infer()
+ │
+ └─ Distance_N
+        └─ 各列10分間 → distance_infer()
+```
+
+サーバ側では、DBから取得したレコードを直接モデルへ渡すのではなく必要な列だけを選択し、`NumPy` 配列へ変換してから各推論関数へ渡せばよい
 
 ---
 
