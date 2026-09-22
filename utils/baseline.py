@@ -5,7 +5,7 @@ import pandas as pd
 from utils.deal_csv import make_10min_segments
 from utils.add_features import add_engineered_features
 
-from config import SAMPLE_HZ, MIN_HISTORY_HOURS
+from config import SAMPLE_HZ, MIN_HISTORY_HOURS, BASE_SENSOR_COLS
 
 MAD_EPS=1e-6 # ゼロ除算防止用の微小値
 
@@ -21,33 +21,49 @@ def robust_stats(values):
 
     return float(median), float(mad_scale)
 
-# 個人チューニングしたベースラインを算出する関数
-# 入力は["Timestamp", "Steps", "Ax", "Ay", "Az","Gx", "Gy", "Gz", "Mx", "My", "Mz"]の行列（任意の行数×11列）
+# ==================================================================================
+# 個人チューニングしたベースラインを過去データから算出する
+#
+# 入力:
+# [N, 10]の「任意の行数×10列」の行列形式
+#
+# 列順:
+# Steps
+# Ax, Ay, Az
+# Gx, Gy, Gz
+# Mx, My, Mz
+#
+# Timestampは入力不要（0.1秒周期で連続取得されたデータであることを前提として内部生成する）
+# 行数に関して、ベースラインの算出に必要な分の過去データが溜まっていなければ受け付けない
+# ==================================================================================
+
 def build_baseline(data):
     # data（過去データの行列）をNumpy配列へ変換
     data = np.asarray(data, dtype=np.float32)
 
-    # 入力データの形式を確認
     if data.ndim != 2 or data.shape[1] != 11:
         raise ValueError(
             "入力データの形式が違います。"
             f"現在のshape: {data.shape}"
+        )
+    
+    if data.shape[1] != len(BASE_SENSOR_COLS):
+        raise ValueError(
+            f"入力データは{len(BASE_SENSOR_COLS)}列必要です。"
+            f" 現在は{data.shape[1]}列です。"
         )
 
     # ベースライン算出に必要な分の履歴が溜まっていなければ即returnとする
     if len(data) < MIN_HISTORY_HOURS * 60 * 60 * SAMPLE_HZ:
         return None
 
-    columns = [
-        "Timestamp",
-        "Steps",
-        "Ax", "Ay", "Az",
-        "Gx", "Gy", "Gz",
-        "Mx", "My", "Mz"
-    ]
-    df = pd.DataFrame(data, columns=columns)
+    # Steps + Ax～Mz からDataFrameを作成
+    df = pd.DataFrame(data, columns=BASE_SENSOR_COLS)
 
-    # ベースライン算出に使いやすい特徴量を計算する
+    # Timestampを内部生成
+    df.insert(0, "Timestamp", np.arange(len(df), dtype=np.float64) / SAMPLE_HZ)
+
+    # ベースライン算出に使う特徴量を追加する
     df, _ = add_engineered_features(df)
 
     # データを10分単位に分割（余りは切り捨てる）
@@ -62,22 +78,26 @@ def build_baseline(data):
     for _, seg in segments:
         # 累計歩数の変化量の総和
         steps = pd.to_numeric(
-            seg["Step_Diff"], errors="coerce"
+            seg["Step_Diff"], 
+            errors="coerce"
         ).fillna(0)
 
         # 加速度の大きさ
         acc = pd.to_numeric(
-            seg["Acc_Mag"], errors="coerce"
+            seg["Acc_Mag"], 
+            errors="coerce"
         )
 
         # ジャイロ（角速度）の大きさ
         gyro = pd.to_numeric(
-            seg["Gyro_Mag"], errors="coerce"
+            seg["Gyro_Mag"], 
+            errors="coerce"
         )
 
         # 地磁気の大きさ
         mag = pd.to_numeric(
-            seg["Mag_Mag"], errors="coerce"
+            seg["Mag_Mag"], 
+            errors="coerce"
         )
 
         rows.append({
