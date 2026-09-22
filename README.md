@@ -179,15 +179,16 @@ Distance_N_Labelが正解データ
 
 ### サーバ側での入力データ作成
 
-DBには以下のようなカラムで計測データが保存されることを想定（DateはTimestampとStartから作成）
+DBには以下のようなカラムで各児童ごとで計測データが保存されることを想定（dateはTimestampとStartから作成）
+（distance_1などはID=1の相手デバイスとの相対距離ということを意味する）
 
 ```text
-id | Date | Steps | Ax | Ay | Az | Gx | Gy | Gz | Mx | My | Mz | Distance_1 | Distance_2 | ...
+child_id | date | steps | ax | ay | az | gx | gy | gz | mx | my | mz | distance_1 | distance_2 | ...
 ````
 
-モデルへの入力に `id` と `Date` は使用しない
+モデルへの入力には `child_id` と `date` は使用しない
 
-ただし、DBからデータを取得するときは時系列順を保証するため、必ず `Date` の昇順でデータを取得する
+ただし、DBからデータを取得するときは時系列順を保証するため、必ず `date` の昇順でデータを取得することが必要
 
 ### 1. DBから10分間のデータを取得する
 
