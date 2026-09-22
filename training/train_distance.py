@@ -38,6 +38,11 @@ def main():
         else [CSV_PATH]
     )
 
+    if not paths:
+        raise ValueError(
+            f"CSVファイルが見つかりません: {CSV_PATH}"
+        )
+
     examples = []
     labels = []
 

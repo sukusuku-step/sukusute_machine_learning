@@ -62,16 +62,6 @@ def load_sessions(paths):
 
     return sessions, fc
 
-# データを学習用80%、テスト用20%に分割する
-def split_paths(paths):
-    rng = np.random.default_rng(SEED)
-    paths = list(paths)
-    rng.shuffle(paths)
-
-    n = max(1,int(len(paths)*0.2))
-
-    return paths[n:], paths[:n]
-
 def main():
     # CSVデータを読み取るためのパスを作成
     paths = (
@@ -81,16 +71,17 @@ def main():
         else [CSV_PATH]
     )
 
-    # pathsリストの長さ = 学習に使うデータのファイル数
+    if not paths:
+        raise ValueError(
+            f"CSVファイルが見つかりません: {CSV_PATH}"
+        )
+
+    # pathsリストの長さ = 学習データのファイル数
     if len(paths) < 2: 
         raise ValueError("汎用モデル評価のためCSVは複数ファイル推奨です。")
 
-    # CSVを読み込み、学習用データとテスト用データを用意する
-    train_paths, test_paths = split_paths(paths)
-
-    # 時間分割した学習サンプルにする
-    train, fc = load_sessions(train_paths)
-    test, _ = load_sessions(test_paths)
+    # 時間分割した学習サンプルを取得
+    train, fc = load_sessions(paths)
 
     if not train: 
         raise ValueError(
@@ -182,7 +173,5 @@ def main():
     )
     print("saved:",out)
 
-    if test:
-        print(f"held-out files: {len(test)} (evaluation implementation can be added after subject-wise split is fixed)")
-
-if __name__=="__main__": main()
+if __name__=="__main__": 
+    main()
