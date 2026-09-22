@@ -3,7 +3,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from config import LABEL_SEC, WINDOW_LEN
+from config import LABEL_SEC, WINDOW_LEN, SEGMENT_LEN
 
 # 生データ（CSV）からTimestampを取得する関数（0.1刻み）
 def get_time(df):
@@ -30,7 +30,7 @@ def make_10min_segments(df):
 
         # 10分 = 6000行そろっている区間だけ採用
         # 10分ごとに分けて最後に余る区間は全て切り捨てとする
-        if len(g) == int(WINDOW_LEN):
+        if len(g) == int(SEGMENT_LEN):
             segments.append((int(sid), g))
 
     return segments
@@ -68,7 +68,7 @@ def activity_from_csv(df):
 def numeric_distance_columns(df):
     return sorted(
         [c for c in df.columns if re.fullmatch(r"Distance_\d+", str(c))],
-        key=lambda c: int(c.split("_")[1])
+        key = lambda c: int(c.split("_")[1])
     )
 
 # Distance列から対応するラベル列のカラム名を取得する関数

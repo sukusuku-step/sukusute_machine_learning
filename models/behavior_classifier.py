@@ -7,8 +7,8 @@ from models.cnn import CNNEncoder
 from config import CNN_CHANNELS, LSTM_HIDDEN, LSTM_LAYERS
 
 # 各10秒の特徴ベクトルを10分束ねてLSTMにより10分での時間的な特徴を抽出する
-# 60個の10秒CNN embedding -> BiLSTM -> attention
-# activity_levelはCSV全体のラベルなので、session_headで累積10分系列を学習する
+# 60個の10秒CNN embedding ⇒ BiLSTM ⇒ attention
+# activity_levelはCSV全体のラベルなので、session_featureで累積10分系列を学習する
 
 # 歩数・加速度データの学習用モデル
 class BehaviorActivityModel(nn.Module):
@@ -40,7 +40,7 @@ class BehaviorActivityModel(nn.Module):
             bidirectional=True
         )
 
-        # セッション全体からactivity_lebelの値を予測する
+        # セッション全体（10分単位に分割して切り捨てた部分を除く）からactivity_levelの値を予測する
         self.activity_head = nn.Linear(LSTM_HIDDEN*2, 5)
 
     # 1つの10分区間を処理する関数
@@ -49,35 +49,41 @@ class BehaviorActivityModel(nn.Module):
         B,W,T,C = x10.shape
 
         z = self.encoder(x10.reshape(B*W,T,C)).reshape(B,W,-1)
-        h,_ = self.temporal(z)
+        h, _ = self.temporal(z)
         a = torch.softmax(self.attn(h).squeeze(-1), dim=1)
         pooled = (h*a.unsqueeze(-1)).sum(dim=1)
 
         return pooled, self.pedo_head(pooled), self.acce_head(pooled)
 
     # CSV全体を処理する関数
-    def forward(self, x10, session_mask=None):
+    def forward(self, x10):
         # x10 [B,S,60,100,C]
-        B,S = x10.shape
+        _, S, _, _, _ = x10.shape
 
         pooled = []
-        pedo=[]
-        acce=[]
+        pedo = []
+        acce = []
 
         for s in range(S):
-            p,po,ac = self.encode_10min(x10[:,s])
-            pooled.append(p); pedo.append(po); acce.append(ac)
+            p, po, ac = self.encode_10min(x10[:,s])
 
-        seq = torch.stack(pooled,1)
-        sh,_ = self.session_lstm(seq)
+            pooled.append(p)
+            pedo.append(po)
+            acce.append(ac)
 
-        if session_mask is None:
-            last = sh[:,-1]
-        else:
-            lengths = session_mask.sum(1).long().clamp_min(1)
-            last = sh[torch.arange(B, device=sh.device), lengths-1]
+        # [B, S, LSTM_HIDDEN*2]
+        seq = torch.stack(pooled, dim=1)
 
-        activity = self.activity_head(last).squeeze(-1)
+        # 双方向LSTMにする
+        _, (h_n, _) = self.session_lstm(seq)
+        session_feature = torch.cat([h_n[-2], h_n[-1]], dim=1)
 
-        # 最終的な出力は歩数・加速度のラベルと活動量の値の予測
-        return torch.stack(pedo,1), torch.stack(acce,1), activity
+        # [B, 5]
+        activity = self.activity_head(session_feature)
+
+        # 最終的な出力結果（歩数・加速度のラベル分類と活動量の値の予測）
+        return (
+            torch.stack(pedo, dim=1),
+            torch.stack(acce, dim=1),
+            activity
+        )

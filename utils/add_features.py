@@ -21,13 +21,16 @@ def add_engineered_features(df):
     my = pd.to_numeric(x["My"], errors="coerce")
     mz = pd.to_numeric(x["Mz"], errors="coerce")
 
-    # 加速度の大きさ
+    # 加速度の大きさ（スカラー）を計算
     x["Acc_Mag"] = np.sqrt(ax**2 + ay**2 + az**2)
     x["Gyro_Mag"] = np.sqrt(gx**2 + gy**2 + gz**2)
     x["Mag_Mag"] = np.sqrt(mx**2 + my**2 + mz**2)
 
-    x["Acc_Diff"] = x["Acc_Mag"].diff().fillna(0) # 加速度変化量
-    x["Jerk"] = x["Acc_Diff"].diff().fillna(0) # 加速度変化率
+    # 加速度変化量（Acc_Diff）と加速度変化率（Jerk）を計算
+    acc_diff = x["Acc_Mag"].diff()
+    x["Acc_Diff"] = acc_diff.fillna(0) 
+    dt = pd.to_numeric(x["Timestamp"], errors="coerce").diff()
+    x["Jerk"] = (acc_diff / dt).replace([np.inf, -np.inf], np.nan).fillna(0)
 
     # 生データ + 補助特徴量 のリストを作る
     feature_cols = BASE_SENSOR_COLS + ["Step_Diff","Acc_Mag","Gyro_Mag","Mag_Mag","Acc_Diff","Jerk"]
