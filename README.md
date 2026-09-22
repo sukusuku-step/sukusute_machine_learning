@@ -54,7 +54,7 @@ python -m training.train_distance
 
 ### 歩数・加速度・活動量ラベルの予測モデル
 
-CSVから以下の時系列センサデータを使用する
+CSVから以下の時系列センサデータ及びラベルを抜き出して学習に使用する
 
 * Steps
 * Ax, Ay, Az
@@ -113,9 +113,11 @@ activity_level（1～の5の値）が正解データ
 
 ### 相対距離ラベルの予測モデル
 
+CSVから`Distance_N`の時系列センサデータ及びラベルを抜き出して学習に使用する
+
 CSV内には `Distance_2`、`Distance_4`、`Distance_12` のように複数相手の相対距離カラムが存在する場合がある
 
-これらに関して、この学習では相手デバイスを区別せず、各 `Distance_N` を独立した学習サンプルとして扱う
+これらに関して、この学習では相手デバイスを区別せず各 `Distance_N` を独立した学習サンプルとして扱う
 
 ```text
 Distance_2  + Distance_2_Label
