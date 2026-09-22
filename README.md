@@ -139,7 +139,7 @@ ch1 : IsNaN
 
 ```text
 正常な距離値 : 0
-NaN          : 1
+NaN         : 1
 ```
 
 Distanceデータの標準化ではNaNを平均値・標準偏差の計算から除外する
@@ -176,8 +176,6 @@ Distance_N_Labelが正解データ
 | `distance_infer()` | 相対距離ラベル | 10分間の1つの `Distance_N` |
 
 `behavior_infer()` と `distance_infer()` は0.1秒周期で取得した10分間、すなわち6000サンプルを入力する
-
----
 
 ### サーバ側での入力データ作成
 
