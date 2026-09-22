@@ -179,7 +179,7 @@ Distance_N_Labelが正解データ
 
 ### サーバ側での入力データ作成
 
-DBには以下のようなカラムで各児童ごとで計測データが保存されることを想定（dateはTimestampとStartから作成）
+DBには以下のようなカラムで各児童ごとで計測データが保存されることを想定（dateはTimestampとStartから作成）  
 （distance_1などはID=1の相手デバイスとの相対距離ということを意味する）
 
 ```text
@@ -192,30 +192,55 @@ child_id | date | steps | ax | ay | az | gx | gy | gz | mx | my | mz | distance_
 
 ### 1. DBから10分間のデータを取得する
 
-計測周期は0.1秒周期なので、10分間のデータは6000行となる
+計測データは0.1秒周期で保存されるため、10分間では6000サンプルとなる
 
-そのため、歩行・姿勢および相対距離を推論する場合は、対象時刻から連続した10分間の6000行を取得する
+歩行・姿勢および相対距離を推論する場合、DBから推論対象となる10分間のデータを `Date` の昇順で6000行取得する  
+（活動量の推論を行う場合は任意のDBから推論対象となる任意の行数のデータを同様に取得する）
 
-取得後のデータは、例えば `pandas.DataFrame` として以下のような状態を想定する
+SQLAlchemyを用いる場合、サーバ側で例えば以下の様にDBからデータを取り出せばよい
 
 ```python
-df
+from datetime import timedelta
+from sqlalchemy import select
+
+end_time = start_time + timedelta(minutes=10)
+
+stmt = (
+ select(Measurement)
+ .where(Measurement.Date >= start_time, Measurement.Date < end_time)
+ .order_by(Measurement.Date.asc())
+)
+
+rows = session.execute(stmt).scalars().all()
+
+if len(rows) != 6000:
+ raise ValueError("10分間の計測データは6000行必要です。")
 ```
 
+取得した上記の `rows` を `pandas.DataFrame` に変換した後、そこから必要なカラムのみNumPy配列として取り出す  
+変換したNumPy配列（行列の形式）が各推論関数が受け付ける入力形式となっている
+
+以下が `pandas.DataFrame` に変換したものの例である（表形式となる）
+
 ```text
-Steps | Ax | Ay | Az | ... | Mz | Distance_2 | Distance_4 | ...
+steps | ax | ay | az | ... | mz | distance_2 | distance_4 | ...
 ---------------------------------------------------------------
 100   | ...                  | ...| 1.25       | NaN
 100   | ...                  | ...| 1.24       | NaN
 101   | ...                  | ...| 1.22       | 2.31
 ...
-
-なお、相対距離データに関しては空欄（NaN）を許容する
 ```
+
+なお、相対距離データに関しては空欄（NaN）を許容している
+
+`pandas.DataFrame` の形式のデータは必要なカラムを選択して `to_numpy()` によりNumPy配列にできる
+
+- `behavior_infer()`：`steps, ax～mz`
+- `distance_infer()`：対象となる1つの `distance_N`
 
 ### 2. 歩行・姿勢モデルへの入力
 
-以下の10列だけを取り出す
+以下の10個のカラムだけを取り出してNumpy配列にする
 
 ```python
 BEHAVIOR_COLUMNS = [
@@ -232,7 +257,7 @@ behavior_data = df[BEHAVIOR_COLUMNS].to_numpy(dtype=np.float32)
 
 ```python
 behavior_data.shape
-# (6000, 10)
+# (6000, 10) が出力
 ```
 
 となる
@@ -243,7 +268,7 @@ behavior_data.shape
 result = behavior_infer(behavior_data)
 ```
 
-へ渡す
+として推論関数に渡すことで入力とできる
 
 `Timestamp` は推論関数内で0.1秒周期を前提に生成するため、サーバ側で用意する必要はない
 
@@ -251,30 +276,28 @@ result = behavior_infer(behavior_data)
 
 相対距離は `Distance_N` ごとに個別に推論する
 
-例えば `Distance_1` の場合、
+例えば `Distance_1` の場合、`Distance_1` カラムを取り出してNumpy配列にする
 
 ```python
 distance_data = df["Distance_1"].to_numpy(dtype=np.float32)
 ```
 
-とする
-
 入力shapeは、
 
 ```python
 distance_data.shape
-# (6000,)
+# (6000,)が出力
 ```
 
 となる
 
-これを、
+この配列をそのまま、
 
 ```python
 result = distance_infer(distance_data)
 ```
 
-へ渡す
+として推論関数に渡すことで入力とできる
 
 `Distance_N` に含まれるNaNは、そのまま残して入力する
 サーバ側で0や平均値に置換する必要はなく、NaN処理は `distance_infer()` 内部で行う
@@ -287,7 +310,7 @@ for column in ["Distance_1", "Distance_2", "Distance_3",]:
     result = distance_infer(distance_data)
 ```
 
-のように各 `Distance_N` を個別に渡す
+のように各 `Distance_N` を個別に推論関数へ入力するようにする
 
 ### 4. 活動量モデルへの入力
 
@@ -298,7 +321,7 @@ activity_data = df[BEHAVIOR_COLUMNS].to_numpy(dtype=np.float32)
 result = activity_infer(activity_data)
 ```
 
-ただし、活動量は10分単位ではなく対象期間全体から推論する
+ただし、活動量は10分単位ではなく対象期間全体（任意の長さ）から推論する
 
 例えば1時間分の活動量を求める場合は、
 
@@ -306,7 +329,7 @@ result = activity_infer(activity_data)
 1時間 × 3600秒 × 10 Hz = 36000行
 ```
 
-を取得して入力する
+の分を取得して入力すればよい
 
 ---
 
@@ -327,7 +350,7 @@ pandas.DataFrame
         └─ 各列10分間 → distance_infer()
 ```
 
-サーバ側では、DBから取得したレコードを直接モデルへ渡すのではなく必要な列だけを選択し、`NumPy` 配列へ変換してから各推論関数へ渡せばよい
+サーバ側では、DBから取得したレコードを直接モデルへ渡すのではなくそれをDataFrameへ変換し、必要なカラムだけを選択してそれをさらにNumPy配列へ変換してから各推論関数へ渡せばよい
 
 ---
 
