@@ -53,3 +53,56 @@ def apply_scaler(arr, scaler):
     standardized_shape = scaler.transform(arr.reshape(-1, shape[-1])).reshape(shape).astype(np.float32)
 
     return standardized_shape
+
+# 相対距離データ専用の標準化基準を作る関数（NaNを平均・標準偏差の計算に含めない）
+def fit_distance_scaler(distance):
+    distance = np.asarray(distance, dtype=np.float32)
+
+    if np.isinf(distance).any():
+        raise ValueError(
+            "Distance contains +inf or -inf"
+        )
+
+    valid = ~np.isnan(distance)
+
+    if not valid.any():
+        raise ValueError(
+            "有効なDistance値が1つもありません。"
+        )
+
+    scaler = StandardScaler()
+    scaler.fit(distance[valid].reshape(-1, 1))
+
+    # 標準化基準のscalerを返す
+    return scaler
+
+# 相対距離データの学習用にDistanceとNaNフラグからCNN入力を作る関数
+def make_distance_features(distance, scaler):
+    distance = np.asarray(distance, dtype=np.float32)
+
+    if np.isinf(distance).any():
+        raise ValueError(
+            "Distance contains +inf or -inf"
+        )
+
+    is_nan = np.isnan(distance)
+
+    # NaNの位置は学習データ全体の平均値で埋める
+    # StandardScaler後にはこれは0になる
+    filled = distance.copy()
+    filled[is_nan] = float(scaler.mean_[0])
+    scaled = scaler.transform(filled.reshape(-1, 1)).reshape(distance.shape).astype(np.float32)
+
+    # 数値誤差も含めNaNの部分は明示的に0にする
+    scaled[is_nan] = 0.0
+
+    # 第1ch = Distance、第2ch = IsNaN（NaNであるフラグ）
+    result = np.stack(
+        [
+            scaled,
+            is_nan.astype(np.float32)
+        ],
+        axis=-1
+    )
+
+    return result

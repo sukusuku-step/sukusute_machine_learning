@@ -24,7 +24,7 @@ class BehaviorActivityModel(nn.Module):
             LSTM_HIDDEN, 
             num_layers=LSTM_LAYERS, 
             batch_first=True,
-            dropout=0.2, 
+            dropout=0.2 if LSTM_LAYERS > 1 else 0.0,
             bidirectional=True
         )
         self.attn = nn.Linear(LSTM_HIDDEN*2, 1)

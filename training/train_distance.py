@@ -12,20 +12,22 @@ from utils.deal_csv import *
 from models import DistanceModel
 
 from config import (
-    WINDOW_LEN,
     N_WINDOWS,
+    WINDOW_LEN,
+    SEGMENT_LEN,
     SEED,
     EPOCHS,
     LEARNING_RATE,
     CSV_PATH, 
-    DISTANCE_MODEL_PATH, 
+    DISTANCE_MODEL_PATH
 )
 
 # 各相手との相対距離データからCNN+LSTMにより学習を行う
 # 相対距離のラベル分類が推論結果となるモデル
 
 # 学習データの順番をシャッフルする
-np.random.seed(SEED); torch.manual_seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
 
 def main():
     # CSVデータを読み取るためのパスを作成
@@ -36,8 +38,8 @@ def main():
         else [CSV_PATH]
     )
 
-    examples=[]
-    labels=[]
+    examples = []
+    labels = []
 
     # 取得した各ファイルについて学習を行う
     for path in paths:
@@ -57,7 +59,7 @@ def main():
             # 10分単位にデータを分割する
             for _, seg in make_10min_segments(temp):
                 # 入力データが6000行であるかどうかの確認
-                if len(seg) != N_WINDOWS * WINDOW_LEN:
+                if len(seg) != SEGMENT_LEN:
                     continue
 
                 lab = label_from_segment(seg, lc)
@@ -67,71 +69,78 @@ def main():
 
                 distance = seg[dc].to_numpy(dtype=np.float32)
 
-                # 相対距離でNaN（タイムアウト）だった位置を記録
-                is_nan = np.isnan(distance).astype(np.float32)
+                # NaNはそのまま保存しておく
+                distance = distance.reshape(N_WINDOWS, WINDOW_LEN)
 
-                # NaNそのものは扱えないためモデルには入れない
-                distance = np.nan_to_num(distance, nan=0.0)
-
-                # Distance + NaNフラグ（NaNをIsNaNフラグとしてモデルに渡す方式）
-                arr = np.stack([distance, is_nan], axis=-1)
-                arr = arr.reshape(N_WINDOWS, WINDOW_LEN, 2)
-
-                examples.append(arr)
+                examples.append(distance)
                 labels.append(lab)
 
     if not examples: 
         raise ValueError("Distance_i + Distance_i_Label の学習データがありません。")
 
-    # Numpy配列にまとめる
-    X=np.stack(examples)
+    # [サンプル数, 60, 100]
+    distance_raw = np.stack(examples).astype(np.float32)
 
-    # 各ラベルを番号に変換する
-    enc=LabelEncoder().fit(labels)
-    y=enc.transform(labels)
+    # ラベル
+    enc = LabelEncoder().fit(labels)
+    y = enc.transform(labels)
 
-    # データの標準化
-    scaler=fit_scaler(X)
-    X=apply_scaler(X,scaler)
+    # NaNを除外してDistance専用の標準化基準を作る
+    # 標準化後の0は「距離については中立値なので無視して、IsNaN=1を見てください」という意味
+    scaler = fit_distance_scaler(distance_raw)
 
-    # モデルを作成する（CNN⇒LSTM⇒Attention）
-    model=DistanceModel(n_classes=len(enc.classes_))
+    # ch0 = 標準化Distance、ch1 = IsNaN
+    # NaNはモデルには直接入れられないので、IsNaNフラグを用意して学習させる
+    X = make_distance_features(distance_raw, scaler)
+
+    if X.shape[-1] != 2:
+        raise RuntimeError(
+            f"Distance input must have 2 channels, got {X.shape}"
+        )
+
+    if not np.isfinite(X).all():
+        raise RuntimeError(
+            "Preprocessed input contains NaN or inf"
+        )
+
+    # モデルを作成する（CNN ⇒ LSTM ⇒ Attention）
+    model = DistanceModel(in_channels=2, n_classes=len(enc.classes_))
 
     # 最適化
-    opt=torch.optim.AdamW(
+    opt = torch.optim.AdamW(
         model.parameters(),
         lr=LEARNING_RATE,
         weight_decay=1e-4
     )
-    loss_fn=nn.CrossEntropyLoss() # 損失関数
+    loss_fn = nn.CrossEntropyLoss() # 損失関数
     model.train()
 
     # 学習を進める
     for ep in range(EPOCHS):
-        order=np.random.permutation(len(X))
-        total=0
+        order = np.random.permutation(len(X))
+        total = 0
 
         for i in order:
-            xb=torch.tensor(X[i:i+1])
-            yb=torch.tensor(y[i:i+1])
+            xb = torch.tensor(X[i:i+1])
+            yb = torch.tensor(y[i:i+1])
 
             opt.zero_grad()
-            loss=loss_fn(model(xb),yb)
+            loss = loss_fn(model(xb),yb)
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(),1.0);
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
 
             total+=loss.item()
 
-        if (ep+1)%5==0 or ep==0: 
-            print(f"epoch {ep+1}/{EPOCHS} loss={total/len(X):.4f}")
+        if (ep+1)%5 == 0 or ep == 0: 
+            print(f"epoch {ep+1} / {EPOCHS} loss = {total/len(X):.4f}")
 
     # できた学習済みモデル及びその設定ファイルの保存
-    out=Path(DISTANCE_MODEL_PATH)
+    out = Path(DISTANCE_MODEL_PATH)
     out.mkdir(parents=True,exist_ok=True)
-    torch.save(model.state_dict(),out/"distance.pt")
-    joblib.dump(scaler,out/"scaler.joblib")
+    torch.save(model.state_dict(), out/"distance.pt")
+    joblib.dump(scaler, out/"scaler.joblib")
 
     save_json(
         {
@@ -142,4 +151,5 @@ def main():
     )
     print("saved:",out)
 
-if __name__=="__main__": main()
+if __name__== "__main__": 
+    main()
