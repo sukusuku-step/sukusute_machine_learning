@@ -34,7 +34,7 @@ MIN_HISTORY_HOURS = 24 # ベースラインを作るために必要な最低履�
 DEFAULT_HISTORY_DAYS = 14 # 履歴データを使う場合の参照する過去の期間（14日間）
 
 # 学習用のラベリング済み実測データCSVファイルが格納されているフォルダのパス
-CSV_PATH = "sensor/collected_data"
+CSV_PATH = "collected_data"
 
 # 作成した学習済みモデル及びその設定ファイルを格納するフォルダのパス
 BEHAVIOR_MODEL_PATH = "models/saved/behavior"
