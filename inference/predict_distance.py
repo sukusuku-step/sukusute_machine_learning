@@ -1,79 +1,142 @@
 from __future__ import annotations
 from pathlib import Path
-import numpy as np, torch, joblib, json
+import json
+import joblib
+import numpy as np
+import torch
 
 from models import DistanceModel
-from utils.add_features import apply_scaler
 
-from config import WINDOW_LEN, N_WINDOWS, DISTANCE_MODEL_PATH
+from utils.add_features import make_distance_features
 
-# 学習済みモデルを使い、計測データからその推論（ラベル分類）を出力する
+from config import (
+    WINDOW_LEN,
+    N_WINDOWS,
+    SEGMENT_LEN,
+    DISTANCE_MODEL_PATH
+)
 
+# =========================================================================================
+# 学習済みDistanceモデルを使い、ある1つのDistance_Nデータからその推論（相対距離ラベル）を出力する
+#
+# 入力:
+#   [6000]
+#
+# または
+#
+#   [6000, 1]
+#
 # ある相手1人に対する相対距離の10分間データからのラベル分類の推論（10分間は6000行）
-# 入力は["Distance_N"]の行列（6000行×1列、NaNを含んでいてもよい）
+# 入力は6000行（10分）×1列（1種類の相対距離カラム）の行列の形式
+#
+# 入力データの中にはNaNを含んでいてもよい
+# =========================================================================================
+
+# 1つのDistance_Nについて、10分間の距離時系列からラベルを推論する
 def distance_infer(data):
-    # data（ある相手1人に対する相対距離の10分間データ）をNumpy配列へ変換
     data = np.asarray(data, dtype=np.float32)
 
-    # 入力データの形式の確認
+    # [6000,1]の場合は[6000]へ入力データを変換する
     if data.ndim == 2:
         if data.shape[1] != 1:
             raise ValueError(
-                "相対距離データの入力形式が違います。"
-                f"現在のshape: {data.shape}"
+                "相対距離データは"
+                "[6000]または[6000,1]"
+                "形式で入力してください。"
+                f" 現在のshape: {data.shape}"
             )
         data = data[:, 0]
 
-    # 入力データのサンプル数の確認
-    if len(data) != N_WINDOWS * WINDOW_LEN:
+    elif data.ndim != 1:
         raise ValueError(
-            f"10分間のデータには{N_WINDOWS * WINDOW_LEN}サンプル必要です。"
-            f"現在は{len(data)}サンプルです。"
+            "相対距離データは"
+            "[6000]または[6000,1]"
+            "形式で入力してください。"
+            f" 現在のshape: {data.shape}"
+        )
+    
+    if len(data) != SEGMENT_LEN:
+        raise ValueError(
+            f"10分間のデータには{SEGMENT_LEN}サンプル必要です。"
+            f" 現在は{len(data)}サンプルです。"
         )
 
-    # データの記録がNaNであった場所を記録
-    is_nan = np.isnan(data).astype(np.float32)
+    # 学習済みモデル・Scaler・設定ファイルを読み込む
+    model_dir = Path(DISTANCE_MODEL_PATH)
+    config = json.loads((model_dir / "config.json").read_text(encoding="utf-8"))
 
-    # モデルにはNaNを入力しないようにする
-    data = np.nan_to_num(data, nan=0.0)
+    # Distance専用Scaler（学習時にNaNを除外してfitされたもの）
+    scaler = joblib.load(model_dir / "scaler.joblib")
 
-    # Distance + NaNフラグ（NaNはIsNaNとしてモデルに渡す方式）
-    x = np.stack([data, is_nan], axis=-1)
+    # 学習時と同じ2chモデルにする
+    model = DistanceModel(in_channels=2, n_classes=len(config["classes"]))
+
+    model.load_state_dict(
+        torch.load(
+            model_dir / "distance.pt",
+            map_location="cpu"
+        )
+    )
+
+    model.eval()
+
+    # --------------------------------------------------------
+    # 学習時と同じDistance前処理を行う
+    #
+    # 生Distance:
+    #
+    # [6000]
+    #
+    # ↓
+    #
+    # make_distance_features()
+    #
+    # ↓
+    #
+    # [6000,2]
+    #
+    # ch0 = 標準化Distance
+    # ch1 = IsNaN
+    #
+    # NaN位置:
+    #
+    # Distance_scaled = 0
+    # IsNaN           = 1
+    #
+    # 通常位置:
+    #
+    # Distance_scaled = 標準化値
+    # IsNaN           = 0
+    # --------------------------------------------------------
+
+    x = make_distance_features(data, scaler)
+
+    if not np.isfinite(x).all():
+        raise RuntimeError(
+            "Distance前処理後に"
+            "NaNまたはinfが残っています。"
+        )
+
+    # [6000,2]
+    # ↓
+    # [60,100,2]
     x = x.reshape(N_WINDOWS, WINDOW_LEN, 2)
-    x = x[np.newaxis, ...]
 
-    # 学習済みモデル・Scaler・設定ファイルのパスからモデルを読み込む
-    d = Path(DISTANCE_MODEL_PATH)
-    cfg = json.loads((d / "config.json").read_text(encoding="utf-8"))
+    # Batch次元追加
+    #
+    # [1,60,100,2]
+    x_tensor = (torch.from_numpy(x).unsqueeze(0))
 
-    # 学習時と同じ標準化基準を使用
-    scaler = joblib.load(d / "scaler.joblib")
-
-    # 学習時と同じモデル構造を作成
-    model = DistanceModel(n_classes=len(cfg["classes"]))
-
-    # 学習済みパラメータを読み込む
-    model.load_state_dict(torch.load(d / "distance.pt", map_location="cpu"))
-
-    model.eval() # 推論モードにする
-
-    # データを学習時と同じScalerで標準化する
-    x = apply_scaler(x, scaler)
-
-    # CNN + LSTMモデルへ入力する形にする
-    x_tensor = torch.tensor(x)
-
-    # 学習モデルによる推論を行う
+    # 推論を行う
     with torch.no_grad():
         output = model(x_tensor)
 
-    # 相対距離のラベル分類の推論（10分毎）
-    prob = output[0].softmax(-1)
+    prob = torch.softmax(output[0], dim=-1)
     class_idx = int(prob.argmax())
-    label = cfg["classes"][class_idx]
+    label = (config["classes"][class_idx])
     confidence = float(prob[class_idx])
 
-    # 推論結果を返す
+    # 推論結果を出力
     return {
         "label": label,
         "confidence": confidence
