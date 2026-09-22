@@ -171,7 +171,7 @@ Distance_N_Labelが正解データ
 
 | 関数 | 推論内容 | 入力形式 |
 |---|---|---|
-| `behavior_infer()` | 歩行・姿勢ラベル | 10分間の `Steps, Ax～Mz` |
+| `behavior_infer()` | 歩数・加速度ラベル | 10分間の `Steps, Ax～Mz` |
 | `activity_infer()` | 活動量の値（1～5） | 10分以上の `Steps, Ax～Mz` |
 | `distance_infer()` | 相対距離ラベル | 10分間の1つの `Distance_N` |
 
@@ -194,7 +194,7 @@ child_id | date | steps | ax | ay | az | gx | gy | gz | mx | my | mz | distance_
 
 計測データは0.1秒周期で保存されるため、10分間では6000サンプルとなる
 
-歩行・姿勢および相対距離を推論する場合、DBから推論対象となる10分間のデータを `Date` の昇順で6000行取得する  
+歩行・加速度及び相対距離の推論の場合、DBから推論対象となる10分間のデータを `Date` の昇順で6000行取得する  
 （活動量の推論を行う場合は任意のDBから推論対象となる任意の行数のデータを同様に取得する）
 
 SQLAlchemyを用いる場合、サーバ側で例えば以下の様にDBからデータを取り出せばよい
@@ -238,9 +238,9 @@ steps | ax | ay | az | ... | mz | distance_2 | distance_4 | ...
 - `behavior_infer()`：`steps, ax～mz`
 - `distance_infer()`：対象となる1つの `distance_N`
 
-### 2. 歩行・姿勢モデルへの入力
+### 2. 歩数・加速度モデルへの入力
 
-以下の10個のカラムだけを取り出してNumpy配列にする
+以下の10個のカラムだけを取り出してNumPy配列にする
 
 ```python
 BEHAVIOR_COLUMNS = [
@@ -276,7 +276,7 @@ result = behavior_infer(behavior_data)
 
 相対距離は `Distance_N` ごとに個別に推論する
 
-例えば `Distance_1` の場合、`Distance_1` カラムを取り出してNumpy配列にする
+例えば `Distance_1` の場合、`Distance_1` カラムを取り出してNumPy配列にする
 
 ```python
 distance_data = df["Distance_1"].to_numpy(dtype=np.float32)
@@ -299,7 +299,7 @@ result = distance_infer(distance_data)
 
 として推論関数に渡すことで入力とできる
 
-`Distance_N` に含まれるNaNは、そのまま残して入力する
+`Distance_N` に含まれるNaNは、そのまま残して入力する  
 サーバ側で0や平均値に置換する必要はなく、NaN処理は `distance_infer()` 内部で行う
 
 複数の相手を推論する場合は、
