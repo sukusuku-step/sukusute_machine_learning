@@ -342,11 +342,11 @@ Date昇順で対象期間を取得
  ↓
 pandas.DataFrame
  │
- ├─ Steps + Ax～Mz
+ ├─ steps + ax～mz
  │      ├─ 10分間 → behavior_infer()
  │      └─ 対象期間全体 → activity_infer()
  │
- └─ Distance_N
+ └─ distance_N
         └─ 各列10分間 → distance_infer()
 ```
 
@@ -358,7 +358,7 @@ pandas.DataFrame
 `build_baseline()` の入力列は `activity_infer()` と同じ形式となる
 
 任意の長さの10個のカラム（steps、ax～mz）だけを取り出したNumPy配列が入力となる  
-ただし、一定以上の長さの履歴が無い場合は入力ができない
+ただし、一定以上の長さの履歴が無い場合は入力ができない  
 （現在の設定では、24時間以上の長さでないとベースラインの算出ができない）
 
 この関数の返り値は、ベースラインとなる「普段」の平均値及び標準偏差となる  
