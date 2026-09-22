@@ -39,3 +39,6 @@ CSV_PATH = "collected_data"
 # 作成した学習済みモデル及びその設定ファイルを格納するフォルダのパス
 BEHAVIOR_MODEL_PATH = "models/saved/behavior"
 DISTANCE_MODEL_PATH = "models/saved/distance"
+
+# 学習モデル評価の際のテスト用計測データのCSVファイルが格納されているフォルダのパス
+EVALUATE_CSV_PATH = "collected_data/evaluate"
