@@ -5,11 +5,11 @@ import joblib
 import numpy as np
 import torch
 
-from models import DistanceModel
+from sukusute_machine_learning.models.distance_classifier import DistanceModel
 
-from utils.add_features import make_distance_features
+from sukusute_machine_learning.utils.add_features import make_distance_features
 
-from config import (
+from sukusute_machine_learning.config import (
     WINDOW_LEN,
     N_WINDOWS,
     SEGMENT_LEN,

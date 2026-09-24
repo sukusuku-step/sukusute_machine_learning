@@ -2,9 +2,9 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from models.cnn import CNNEncoder
+from sukusute_machine_learning.models.cnn import CNNEncoder
 
-from config import CNN_CHANNELS, LSTM_HIDDEN, LSTM_LAYERS
+from sukusute_machine_learning.config import CNN_CHANNELS, LSTM_HIDDEN, LSTM_LAYERS
 
 # 各10秒の特徴ベクトルを10分束ねてLSTMにより10分での時間的な特徴を抽出する
 # 60個の10秒CNN embedding ⇒ BiLSTM ⇒ attention

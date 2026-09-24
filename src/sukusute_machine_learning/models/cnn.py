@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from config import CNN_CHANNELS
+from sukusute_machine_learning.config import CNN_CHANNELS
 
 # 10秒ごとに分割したデータからCNNにより特徴ベクトルを作る
 class CNNEncoder(nn.Module):

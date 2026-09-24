@@ -5,10 +5,10 @@ import numpy as np, torch
 import torch.nn as nn
 import joblib
 
-from utils.collector import *
-from utils.add_features import *
-from utils.deal_csv import *
-from models import BehaviorActivityModel
+from sukusute_machine_learning.utils.collector import *
+from sukusute_machine_learning.utils.add_features import *
+from sukusute_machine_learning.utils.deal_csv import *
+from sukusute_machine_learning.models import BehaviorActivityModel
 
 from config import (
     N_WINDOWS,

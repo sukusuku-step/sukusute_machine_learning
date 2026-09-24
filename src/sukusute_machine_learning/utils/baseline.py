@@ -2,10 +2,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from utils.deal_csv import make_10min_segments
-from utils.add_features import add_engineered_features
+from sukusute_machine_learning.utils.deal_csv import make_10min_segments
+from sukusute_machine_learning.utils.add_features import add_engineered_features
 
-from config import SAMPLE_HZ, MIN_HISTORY_HOURS, BASE_SENSOR_COLS
+from sukusute_machine_learning.config import SAMPLE_HZ, MIN_HISTORY_HOURS, BASE_SENSOR_COLS
 
 MAD_EPS=1e-6 # ゼロ除算防止用の微小値
 

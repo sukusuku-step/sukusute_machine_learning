@@ -6,10 +6,10 @@ import torch.nn as nn
 from sklearn.preprocessing import LabelEncoder
 import joblib
 
-from utils.collector import *
-from utils.add_features import *
-from utils.deal_csv import *
-from models import DistanceModel
+from sukusute_machine_learning.utils.collector import *
+from sukusute_machine_learning.utils.add_features import *
+from sukusute_machine_learning.utils.deal_csv import *
+from sukusute_machine_learning.models import DistanceModel
 
 from config import (
     N_WINDOWS,

@@ -6,12 +6,12 @@ import numpy as np
 import pandas as pd
 import torch
 
-from models import BehaviorActivityModel
+from sukusute_machine_learning.models.behavior_classifier import BehaviorActivityModel
 
-from utils.add_features import add_engineered_features, apply_scaler
-from utils.deal_csv import split_into_windows
+from sukusute_machine_learning.utils.add_features import add_engineered_features, apply_scaler
+from sukusute_machine_learning.utils.deal_csv import split_into_windows
 
-from config import (
+from sukusute_machine_learning.config import (
     WINDOW_LEN,
     N_WINDOWS,
     SEGMENT_LEN,

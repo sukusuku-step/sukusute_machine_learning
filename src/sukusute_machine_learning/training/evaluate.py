@@ -10,10 +10,11 @@ import numpy as np
 import pandas as pd
 import torch
 
-from utils.collector import *
-from utils.add_features import *
-from utils.deal_csv import *
-from models import BehaviorActivityModel, DistanceModel
+from sukusute_machine_learning.utils.collector import *
+from sukusute_machine_learning.utils.add_features import *
+from sukusute_machine_learning.utils.deal_csv import *
+from sukusute_machine_learning.models.behavior_classifier import BehaviorActivityModel
+from sukusute_machine_learning.models.distance_classifier import DistanceModel
 
 from config import (
     N_WINDOWS,

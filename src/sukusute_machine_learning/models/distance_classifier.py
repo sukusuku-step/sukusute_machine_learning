@@ -2,9 +2,9 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from models.cnn import CNNEncoder
+from sukusute_machine_learning.models.cnn import CNNEncoder
 
-from config import CNN_CHANNELS, LSTM_HIDDEN, LSTM_LAYERS
+from sukusute_machine_learning.config import CNN_CHANNELS, LSTM_HIDDEN, LSTM_LAYERS
 
 # 各Distance_Nのデータは、相手デバイスごとで区別はせず全て単純な数値とラベルの学習データと見る
 # 得られた各Distance_Nの10秒の特徴ベクトルを、10分束ねてBiLSTM ⇒ Attentionでまとめて学習する

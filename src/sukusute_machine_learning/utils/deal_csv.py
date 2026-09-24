@@ -3,7 +3,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from config import LABEL_SEC, WINDOW_LEN, SEGMENT_LEN
+from sukusute_machine_learning.config import LABEL_SEC, WINDOW_LEN, SEGMENT_LEN
 
 # 生データ（CSV）からTimestampを取得する関数（0.1刻み）
 def get_time(df):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from config import LABEL_WEIGHTS_DEFAULT
+from sukusute_machine_learning.config import LABEL_WEIGHTS_DEFAULT
 
 # 入力: 過去の相対距離のラベル分類の推論結果の集計（任意の長さの配列）
 # 出力: あるデバイスから見た相手デバイスとの関連度スコア（0から1のfloatの値）

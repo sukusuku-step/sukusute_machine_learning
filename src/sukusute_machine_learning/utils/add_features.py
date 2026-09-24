@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
-from config import BASE_SENSOR_COLS
+from sukusute_machine_learning.config import BASE_SENSOR_COLS
 
 # 生データから補助特徴量を算出する関数（CNNには生データ+補助特徴量を同時入力する）
 def add_engineered_features(df):
