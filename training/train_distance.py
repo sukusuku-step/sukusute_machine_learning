@@ -9,7 +9,7 @@ import joblib
 from utils.collector import *
 from utils.add_features import *
 from utils.deal_csv import *
-from models import DistanceModel
+from models.distance_classifier import DistanceModel
 
 from config import (
     N_WINDOWS,

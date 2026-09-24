@@ -1,10 +1,8 @@
 from __future__ import annotations
-
 import glob
 import json
 import os
 from pathlib import Path
-
 import joblib
 import numpy as np
 import pandas as pd
@@ -13,7 +11,8 @@ import torch
 from utils.collector import *
 from utils.add_features import *
 from utils.deal_csv import *
-from models import BehaviorActivityModel, DistanceModel
+from models.behavior_classifier import BehaviorActivityModel
+from models.distance_classifier import DistanceModel
 
 from config import (
     N_WINDOWS,

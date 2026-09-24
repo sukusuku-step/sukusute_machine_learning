@@ -8,7 +8,7 @@ import joblib
 from utils.collector import *
 from utils.add_features import *
 from utils.deal_csv import *
-from models import BehaviorActivityModel
+from models.behavior_classifier import BehaviorActivityModel
 
 from config import (
     N_WINDOWS,
@@ -119,15 +119,15 @@ def main():
 
     # 学習を進める
     for ep in range(EPOCHS):
-        order=np.random.permutation(len(train))
-        total=0
+        order = np.random.permutation(len(train))
+        total = 0
         model.train()
 
         for idx in order:
             x, ps, acs, act = train[idx]
 
             # セッション全体を一度に入力する（S=10分のサンプル）
-            x = apply_scaler(scaler,x)
+            x = apply_scaler(x, scaler)
             xt = torch.tensor(x).unsqueeze(0)
             pm = torch.tensor([[pmap[v] for v in ps]])
             am = torch.tensor([[amap[v] for v in acs]])
@@ -141,10 +141,10 @@ def main():
             loss_act = ce_act(actlogit, ym)
 
             # 行動/姿勢を主タスク、activity_levelを補助タスクとして学習
-            loss = loss_p+loss_a+0.5*loss_act
+            loss = loss_p+loss_a + 0.5 * loss_act
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(),1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
 
             total+=loss.item()
