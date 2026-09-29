@@ -41,7 +41,7 @@ def build_baseline(data):
     # data（過去データの行列）をNumpy配列へ変換
     data = np.asarray(data, dtype=np.float32)
 
-    if data.ndim != 2 or data.shape[1] != 11:
+    if data.ndim != 2 or data.shape[1] != 10:
         raise ValueError(
             "入力データの形式が違います。"
             f"現在のshape: {data.shape}"
