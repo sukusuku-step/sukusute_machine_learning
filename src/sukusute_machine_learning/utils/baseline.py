@@ -5,7 +5,7 @@ import pandas as pd
 from sukusute_machine_learning.utils.deal_csv import make_10min_segments
 from sukusute_machine_learning.utils.add_features import add_engineered_features
 
-from sukusute_machine_learning.config import SAMPLE_HZ, MIN_HISTORY_HOURS, BASE_SENSOR_COLS
+from sukusute_machine_learning.config import SAMPLE_HZ, BASE_SENSOR_COLS
 
 MAD_EPS=1e-6 # ゼロ除算防止用の微小値
 
@@ -37,7 +37,7 @@ def robust_stats(values):
 # 行数に関して、ベースラインの算出に必要な分の過去データが溜まっていなければ受け付けない
 # ==================================================================================
 
-def build_baseline(data):
+def build_baseline(data, min_history_hours):
     # data（過去データの行列）をNumpy配列へ変換
     data = np.asarray(data, dtype=np.float32)
 
@@ -54,7 +54,7 @@ def build_baseline(data):
         )
 
     # ベースライン算出に必要な分の履歴が溜まっていなければ即returnとする
-    if len(data) < MIN_HISTORY_HOURS * 60 * 60 * SAMPLE_HZ:
+    if len(data) < min_history_hours * 60 * 60 * SAMPLE_HZ:
         return None
 
     # Steps + Ax～Mz からDataFrameを作成

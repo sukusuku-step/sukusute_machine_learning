@@ -30,9 +30,6 @@ CNN_CHANNELS = 128 # CNNが抽出する特徴量の次元
 LSTM_HIDDEN = 128 # LSTMの中間層の次元
 LSTM_LAYERS = 2 # LSTMのレイヤー数
 
-MIN_HISTORY_HOURS = 0.08 # ベースラインを作るために必要な最低履歴時間（24時間）
-DEFAULT_HISTORY_DAYS = 14 # 履歴データを使う場合の参照する過去の期間（14日間）
-
 # 学習用のラベリング済み実測データCSVファイルが格納されているフォルダのパス
 CSV_PATH = "collected_data"
 
